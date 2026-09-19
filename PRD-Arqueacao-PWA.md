@@ -282,7 +282,7 @@ Princípios de interface:
 
 1. **Mapeamento tanque → tabela.** Quais produtos estão no tanque de 60.000 L (4 × 15.000), qual está no pleno de 10.000 e qual no ARXO bipartido? O gerente vai enviar a tabela/vídeo do posto.
 2. **Quantidade exata de tanques.** O protótipo tem 6 campos; confirmar se há mais de um tanque para o mesmo produto.
-3. **Tabelas digitadas.** As três tabelas das fotos precisam ser transcritas e conferidas linha a linha antes de entrar no app (risco de erro de OCR nas fotos).
+3. ~~**Tabelas digitadas.**~~ **Resolvido.** `petroaco_15000` e `petroaco_10000_pleno` foram conferidas 254/254 pontos contra os PDFs oficiais do fabricante em petroacosaojoao.com.br/tabelas-de-arqueacao (zero divergência - inclusive corrigiu um bug de 6 linhas faltando no topo das duas tabelas). Ver `js/tables-data.js`.
 4. **Operador.** Basta um campo de texto livre, ou o gerente quer uma lista fixa de nomes?
 5. **Meio centímetro.** As réguas do posto permitem leitura de 0,5 cm? Se sim, vale a interpolação.
 6. **iOS.** Há iPhone em uso no posto? Se sim, testar a Web Share com arquivos no Safari.

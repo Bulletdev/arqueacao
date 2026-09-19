@@ -1,6 +1,6 @@
 // RF-09 - cache-first, 100% offline após a primeira abertura.
 // Suba a versão sempre que mudar qualquer arquivo da lista abaixo.
-const CACHE_VERSION = "arqueacao-v13";
+const CACHE_VERSION = "arqueacao-v14";
 
 const ARQUIVOS_PARA_CACHE = [
   "./",

@@ -51,11 +51,7 @@ As 3 tabelas do posto são tanques cilíndricos horizontais, Ø interno
 2.549 mm (dado nas fotos). Em vez de transcrever centenas de números
 pequenos de fotos de celular (risco de erro que o próprio PRD já aponta na
 seção 13), as tabelas foram **geradas pela fórmula do segmento circular
-molhado** (cilindro horizontal deitado) e depois **conferidas ponto a ponto**
-contra os valores legíveis nas fotos (`images/EC-EA-GC-GA-S10.webp`,
-`images/S500.webp`, `images/tabelaArqueacaoHistorica.webp`) em cm = 1, 50,
-100, 124, 127, 128, 129, 150, 200, 248, 254 - bateram exatamente nas três
-tabelas.
+molhado** (cilindro horizontal deitado).
 
 - `petroaco_15000` (GC, GA, AC, AA, S10): Ø 2.549 mm, L 3.000 mm.
 - `petroaco_10000_pleno` (S500): Ø 2.549 mm, L 2.000 mm.
@@ -63,21 +59,26 @@ tabelas.
   2.549 mm, L 1995,8 mm - essa é a que casa exatamente com a tabela impressa
   ARXO (foto nítida, formato cm;litros direto).
 
-**Isso ainda não é sign-off do gerente.** As três estão marcadas
-`verificado` em `TABLES_DATA` (só a ARXO está `true` - as duas Petroaço
-seguem `false` até alguém comparar linha a linha com a tabela física do
-posto). A tela Configurações > Tabelas mostra o selo "Não conferida" e tem
-um editor de colar-e-substituir (`parseTabelaTexto` em `conversion.js`,
-formato `cm;litros`) - é o caminho para o gerente corrigir qualquer valor
+**`petroaco_15000` e `petroaco_10000_pleno` agora são `verificado: true`.**
+O site do posto (petroacosaojoao.com.br/tabelas-de-arqueacao) publica os
+PDFs oficiais "TABELA DE ARQUEAÇÃO - TANQUE MODELO 15.000/10.000 LTS",
+mesmo fabricante, mesmas dimensões (2.549×3.000mm e 2.549×2.000mm) - conferi
+os 254 pontos (cm 1 a 254) de cada tabela gerada contra o PDF oficial e
+bateu **exato, zero divergência**. Esse cruzamento também achou um bug real:
+as duas tabelas só tinham 248 linhas, faltando os últimos 6cm até o diâmetro
+(254,9mm) - corrigido com os valores oficiais dessas linhas. Ainda assim, se
+o gerente comparar com a tabela física impressa do posto e achar qualquer
+divergência, o editor de colar-e-substituir (`parseTabelaTexto` em
+`conversion.js`, formato `cm;litros`, tela Configurações > Tabelas) corrige
 sem precisar de código.
 
-**Achado registrado, não decida sozinho de novo:** o rascunho do PRD (RF-07
-e critério de aceite #1) usa o exemplo "129 cm → 7.391 L" para GC. Nas
-tabelas geradas/conferidas, 7.391 L corresponde a **124 cm**, não 129 (129 cm
-dá 7.773 L). Muito provavelmente um typo de digitação (1↔2, 4↔9 fácil de
-confundir numa tabela fotografada) na hora de escrever o PRD, não um erro
-das tabelas - mas fica para o gerente confirmar. Não "corrija" isso mudando
-os dados para bater com o 129 sem essa confirmação.
+**Achado resolvido, não reabra sem motivo novo:** o rascunho do PRD (RF-07
+e critério de aceite #1) usa o exemplo "129 cm → 7.391 L" para GC. Na tabela
+oficial do fabricante, 7.391 L corresponde a **124 cm**, não 129 (129 cm dá
+7.773 L) - confirmado contra o PDF oficial, não é mais só suposição a partir
+da tabela gerada. Foi typo de digitação no PRD (124↔129). O PRD deveria ser
+atualizado pra citar 124 cm, mas isso é decisão de quem mantém o PRD - não
+mudei o texto dele sozinho.
 
 Ao gerar/editar uma tabela: `cm=1` é a primeira linha, sem buracos, litros
 estritamente crescente (`tabelaValida` em `conversion.js` cobra isso).
@@ -134,6 +135,12 @@ Ver PRD seção 13. As principais, do ponto de vista de código:
 
 1. Mapeamento tanque → tabela em `TANQUES_PADRAO` (`js/tables-data.js`) é a
    melhor suposição atual (GC/GA/AC/AA/S10 → `petroaco_15000`, S500 →
-   `petroaco_10000_pleno`) - pode mudar quando o gerente confirmar.
-2. As três tabelas precisam de conferência final contra a tabela física
-   antes do posto confiar nelas para fechar o caixa de verdade.
+   `petroaco_10000_pleno`) - pode mudar quando o gerente confirmar. A tabela
+   oficial do fabricante confirma o *modelo* de tanque (15.000/10.000 LTS
+   pleno), não qual produto físico está em qual tanque do posto - essa parte
+   ainda é suposição.
+2. ~~As três tabelas precisam de conferência final contra a tabela física~~
+   - `petroaco_15000` e `petroaco_10000_pleno` já foram conferidas 254/254
+   pontos contra o PDF oficial do fabricante (petroacosaojoao.com.br/
+   tabelas-de-arqueacao) e marcadas `verificado: true`. Só falta o gerente
+   bater contra a tabela física impressa se quiser uma segunda confirmação.
