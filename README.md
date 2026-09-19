@@ -44,10 +44,10 @@
 │  [■] Relatório Excel               - SheetJS, histórico do mês             │
 │  [■] Compartilhar no WhatsApp        - Web Share API com fallback          │
 │  [■] Tabelas editáveis                - colar/substituir, sem mexer código │
-│  [■] Backup/restore                     - export/import JSON completo     │
-│  [■] 100% Offline                        - Service Worker cache-first     │
-│  [■] Instalável                           - manifest + ícones + PWA       │
-│  [■] IndexedDB puro                        - sem Dexie, sem login, sem    │
+│  [■] Backup/restore                     - export/import JSON completo      │
+│  [■] 100% Offline                        - Service Worker cache-first      │
+│  [■] Instalável                           - manifest + ícones + PWA        │
+│  [■] IndexedDB puro                        - sem Dexie, sem login, sem     │
 │                                                telemetria                  │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -60,14 +60,14 @@
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│  01 · Quick Start                                     │
-│  02 · Stack                                           │
-│  03 · Estrutura                                       │
-│  04 · Testar offline                                  │
-│  05 · Deploy na Vercel                                │
-│  06 · Tabelas de arqueação                            │
-│  07 · Status / Pendências                             │
-│  08 · Licença e autoria                               │
+│  01 · Quick Start                                    │
+│  02 · Stack                                          │
+│  03 · Estrutura                                      │
+│  04 · Testar offline                                 │
+│  05 · Deploy na Vercel                               │
+│  06 · Tabelas de arqueação                           │
+│  07 · Status / Pendências                            │
+│  08 · Licença e autoria                              │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -194,5 +194,7 @@ ver seção 13 do PRD):
 
 ## 08 · Licença e autoria
 
-Uso interno do posto Petroaço São João. Desenvolvido por
+Uso interno do posto Petroaço São João.
+
+Desenvolvido por
 [Bullet](https://www.michaelbullet.dev/links).
