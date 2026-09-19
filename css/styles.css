@@ -1,0 +1,544 @@
+:root {
+  /* Cores da marca real do posto (Petroaço São João - petroacosaojoao.com.br):
+     tinta-navy #001936 + dourado #af901c/#7f6500. --cor-acento usa o dourado
+     mais escuro deles (#7f6500, o hover state do CTA no site) porque o
+     #af901c só bate 3:1 de contraste em branco (passa só como texto grande) -
+     como texto normal (resultado, totais) precisa de 4.5:1. */
+  --cor-primaria: #001936;
+  --cor-primaria-escura: #00101f;
+  --cor-acento: #7f6500;
+  --cor-fundo: #f6f2ea;
+  --cor-superficie: #ffffff;
+  --cor-texto: #1c2530;
+  --cor-texto-suave: #5b6672;
+  --cor-borda: #e4dfd2;
+  --cor-erro: #b3261e;
+  --cor-erro-fundo: #fce8e6;
+  --cor-ok: #1e7d3f;
+  --cor-ok-fundo: #e7f5ea;
+  --raio: 10px;
+  --tab-bar-altura: 64px;
+  --assinatura-filtro: invert(1);
+  --espaco-1: 4px;
+  --espaco-2: 8px;
+  --espaco-3: 12px;
+  --espaco-4: 16px;
+  --espaco-5: 24px;
+  color-scheme: light;
+}
+
+/* Segue o tema do sistema quando o usuário não fixou um modo - mesma
+   convenção do DS do Muquirana (tokens claros no :root, redefinidos aqui). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cor-primaria: #4d84ac;
+    --cor-primaria-escura: #6ba0c6;
+    --cor-acento: #e0913a;
+    --cor-fundo: #14181d;
+    --cor-superficie: #1e242b;
+    --cor-texto: #eef1f4;
+    --cor-texto-suave: #97a2ad;
+    --cor-borda: #2c333b;
+    --cor-erro: #f2867c;
+    --cor-erro-fundo: #3a2220;
+    --cor-ok: #6fce8e;
+    --cor-ok-fundo: #1c332420;
+    --assinatura-filtro: none;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  height: 100%;
+}
+
+a { color: var(--cor-primaria); }
+
+/* Cobre o instante entre o HTML pintar e o primeiro roteador() rodar - os
+   vendors (jsPDF + autotable + SheetJS, ~1.3MB) bloqueiam o parser até
+   carregarem no load frio, antes do SW cachear tudo. Some sozinha assim que
+   a primeira tela renderiza, com um mínimo de exibição pra não "piscar"
+   (ver esconderTelaCarregamento em app.js). Mesmo truque de [hidden] do
+   banner-atualizacao: display só entra via :not([hidden]), senão o CSS de
+   autor venceria o atributo hidden.
+
+   trava-de-segurança-css: se o app.js que rodou for uma versão em cache
+   antiga do Service Worker que não conhece esconderTelaCarregamento (pode
+   acontecer numa atualização, a navegação pega o HTML novo mas os scripts
+   ainda vêm do SW anterior até o usuário recarregar) essa tela não pode
+   ficar presa pra sempre - a animação abaixo força opacity:0 e
+   pointer-events:none em 8s independente do JS ter rodado certo ou não. */
+.tela-carregamento {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--cor-primaria);
+  transition: opacity 250ms ease;
+}
+.tela-carregamento:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  animation: tela-carregamento-trava-seguranca 8s forwards;
+}
+.tela-carregamento-escondida { opacity: 0; pointer-events: none; }
+@keyframes tela-carregamento-trava-seguranca {
+  0%, 94% { opacity: 1; pointer-events: auto; }
+  100% { opacity: 0; pointer-events: none; }
+}
+
+.carregando-pontos { display: flex; gap: 8px; }
+.carregando-pontos span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cor-acento);
+  opacity: 0.3;
+  animation: carregando-pontos-pulsar 1.1s ease-in-out infinite;
+}
+.carregando-pontos span:nth-child(2) { animation-delay: 0.15s; }
+.carregando-pontos span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes carregando-pontos-pulsar {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+
+.cabecalho {
+  display: flex;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + var(--espaco-3)) var(--espaco-4) var(--espaco-3);
+  background: var(--cor-primaria);
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.marca { display: flex; align-items: center; }
+.marca-logo { display: block; height: 44px; width: auto; }
+
+main#app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  padding-bottom: calc(var(--tab-bar-altura) + env(safe-area-inset-bottom) + 24px);
+}
+
+/* Navegação principal - barra inferior fixa, no estilo de app instalado
+   (ícone + rótulo, área de toque generosa, respiro pro home indicator do
+   iOS via safe-area-inset-bottom), em vez de links de topo de site. */
+.tab-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  background: var(--cor-superficie);
+  border-top: 1px solid var(--cor-borda);
+  padding: 6px var(--espaco-3) calc(6px + env(safe-area-inset-bottom));
+  box-shadow: 0 -1px 6px rgba(0,0,0,0.04);
+}
+.tab-bar .nav-link {
+  flex: 0 1 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 4px 8px;
+  border-radius: var(--raio);
+  text-decoration: none;
+  color: var(--cor-texto-suave);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.tab-bar .nav-link.ativo { color: var(--cor-primaria); background: color-mix(in srgb, var(--cor-primaria) 12%, transparent); }
+.tab-icone { width: 22px; height: 22px; }
+
+.tela h1 { font-size: 1.4rem; margin: 4px 0 4px; }
+.subtitulo { color: var(--cor-texto-suave); margin: 0 0 20px; font-size: 0.95rem; }
+
+.campos-tanques {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.campo-tanque {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-left: 3px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: var(--espaco-3) var(--espaco-4);
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.campo-tanque-ok {
+  border-left-color: var(--cor-ok);
+  background: color-mix(in srgb, var(--cor-ok-fundo) 55%, var(--cor-superficie));
+}
+.campo-tanque-erro {
+  border-left-color: var(--cor-erro);
+  background: color-mix(in srgb, var(--cor-erro-fundo) 55%, var(--cor-superficie));
+}
+.campo-tanque label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: 700;
+  margin-bottom: var(--espaco-2);
+}
+.nome-tanque { font-weight: 400; color: var(--cor-texto-suave); font-size: 0.85rem; }
+
+.tanque-nivel { margin: 2px 0 10px; }
+.tanque-nivel-svg { display: block; width: 100%; height: 24px; }
+
+.linha-campo { display: flex; align-items: center; gap: 12px; }
+
+.linha-campo input[type="text"] {
+  flex: 0 0 76px;
+  width: 76px;
+  font-size: 1.05rem;
+  text-align: center;
+  padding: 8px 6px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  min-height: 44px;
+}
+.linha-campo input:focus { outline: 2px solid var(--cor-primaria); outline-offset: 1px; }
+
+.resultado {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--cor-acento);
+}
+.resultado-erro { color: var(--cor-erro); font-size: 1rem; }
+
+.total-parcial {
+  margin-top: var(--espaco-4);
+  padding: var(--espaco-3) var(--espaco-4);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  font-weight: 700;
+  color: var(--cor-acento);
+  text-align: right;
+}
+
+.acoes-consulta, .acoes-detalhe, .acoes-dialog, .acoes-backup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2);
+  margin-top: var(--espaco-5);
+}
+
+.acoes-detalhe-perigo {
+  margin-top: var(--espaco-5);
+  padding-top: var(--espaco-3);
+  border-top: 1px solid var(--cor-borda);
+}
+
+.btn {
+  appearance: none;
+  border: none;
+  border-radius: var(--raio);
+  padding: 12px 18px;
+  font-size: 1rem;
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn:focus-visible {
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: 2px;
+}
+.btn-primario { background: var(--cor-primaria); color: white; }
+.btn-primario:hover { background: var(--cor-primaria-escura); }
+.btn-secundario { background: var(--cor-superficie); color: var(--cor-primaria); border: 1px solid var(--cor-primaria); }
+.btn-secundario:hover { background: color-mix(in srgb, var(--cor-primaria) 8%, var(--cor-superficie)); }
+.btn-texto { background: transparent; color: var(--cor-texto-suave); }
+.btn-texto:hover { background: color-mix(in srgb, var(--cor-texto-suave) 12%, transparent); color: var(--cor-texto); }
+.btn-perigo { background: transparent; color: var(--cor-erro); }
+.btn-perigo:hover { background: var(--cor-erro-fundo); }
+.btn-perigo-solido { background: var(--cor-erro); color: white; }
+.btn-perigo-solido:hover { opacity: 0.9; }
+.btn-arquivo { position: relative; overflow: hidden; }
+.btn-com-icone { display: inline-flex; align-items: center; gap: 7px; }
+.btn-com-icone svg { flex-shrink: 0; }
+
+.alerta {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--raio);
+  font-size: 0.95rem;
+}
+.alerta-erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+.alerta-info { background: color-mix(in srgb, var(--cor-primaria) 8%, var(--cor-superficie)); color: var(--cor-primaria-escura); }
+
+dialog {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 20px;
+  width: min(520px, 92vw);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+}
+dialog::backdrop { background: rgba(20,28,36,0.45); }
+
+.dialog-confirmacao p { margin: 0 0 var(--espaco-4); font-size: 1rem; }
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.campo input, .campo textarea, select {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  min-height: 44px;
+  font-weight: 400;
+}
+
+/* Lista de leituras (resumo do fechamento e detalhe) - cartões empilhados
+   em vez de tabela larga, mesma razão da lista de tanques em Config: uma
+   tabela HTML de 3-4 colunas não cabe em 320-360px sem cortar coluna. */
+.lista-leituras {
+  background: var(--cor-superficie);
+  border-radius: var(--raio);
+  padding: 4px var(--espaco-4);
+  margin: var(--espaco-3) 0;
+}
+.linha-leitura {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--espaco-3);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.linha-leitura:last-child { border-bottom: none; }
+.linha-leitura-rotulo { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.linha-leitura-rotulo strong { font-size: 0.95rem; }
+.linha-leitura-rotulo span { color: var(--cor-texto-suave); font-size: 0.82rem; }
+.linha-leitura-valor { font-weight: 700; color: var(--cor-acento); text-align: right; white-space: nowrap; }
+
+.lista-totais { margin-top: 2px; }
+.linha-total-produto, .linha-total-geral {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cor-borda);
+  font-size: 0.95rem;
+}
+.linha-total-produto:last-child, .linha-total-geral { border-bottom: none; }
+.linha-total-geral { font-weight: 700; font-size: 1.05rem; padding-top: 10px; border-top: 2px solid var(--cor-acento); }
+/* Litros são sempre o dourado (var(--cor-acento)) - a única cor de destaque
+   do app, reservada pro que o usuário veio ver: o volume. Azul-tinta fica
+   só pra estrutura (cabeçalho, navegação, botões). */
+.linha-total-produto span:last-child,
+.linha-total-geral span:last-child {
+  color: var(--cor-acento);
+  font-weight: 700;
+}
+
+/* Lista de tanques em Configurações - cartões empilhados em vez de tabela
+   larga, pra não estourar a largura no celular (select com nome comprido
+   de tabela não cabe numa coluna de tabela HTML normal). */
+.lista-tanques-config { display: flex; flex-direction: column; gap: 10px; }
+.linha-tanque-config {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.linha-tanque-config:last-child { border-bottom: none; }
+.linha-tanque-config-nome { display: flex; flex-direction: column; gap: 2px; }
+.linha-tanque-config-nome .nome-tanque { font-size: 0.8rem; }
+.linha-tanque-config select.select-tabela-tanque { flex: 1 1 220px; max-width: 100%; }
+
+.lista-historico { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--espaco-2); }
+.item-historico {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--espaco-3);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 14px;
+  text-decoration: none;
+  color: var(--cor-texto);
+  min-height: 44px;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.item-historico:hover { border-color: var(--cor-primaria); }
+.item-historico:active { transform: scale(0.98); }
+.item-historico:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }
+.item-historico-principal { display: flex; flex-direction: column; gap: 2px; }
+.item-historico-principal span { color: var(--cor-texto-suave); font-size: 0.85rem; }
+.item-historico-fim { display: flex; align-items: center; gap: var(--espaco-2); }
+.item-historico-total { font-weight: 700; color: var(--cor-acento); }
+.item-historico-chevron { color: var(--cor-texto-suave); flex-shrink: 0; }
+.item-ultimo-fechamento { margin-bottom: var(--espaco-4); }
+.vazio { color: var(--cor-texto-suave); }
+
+/* Mesmo truque de [hidden] do banner-atualizacao/tela-carregamento: sem o
+   :not([hidden]), esse display:flex de autor vencia o [hidden] da UA
+   stylesheet e a mensagem de "nenhum fechamento" ficava visível sempre,
+   mesmo com hidden=true e a lista cheia acima dela. */
+.estado-vazio:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--espaco-3);
+  padding: var(--espaco-5) var(--espaco-4);
+  color: var(--cor-texto-suave);
+}
+.estado-vazio svg { width: 48px; height: 48px; opacity: 0.5; }
+.estado-vazio p { margin: 0; font-size: 0.95rem; }
+
+.filtros-historico { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.filtros-historico select { min-height: 44px; border-radius: var(--raio); border: 1px solid var(--cor-borda); padding: 8px 10px; }
+
+.config-bloco {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 4px var(--espaco-4) var(--espaco-4);
+  margin-bottom: var(--espaco-3);
+}
+.config-bloco summary {
+  padding: var(--espaco-3) 0;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+}
+.config-bloco summary::-webkit-details-marker { display: none; }
+.config-bloco summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--cor-texto-suave);
+  border-bottom: 2px solid var(--cor-texto-suave);
+  transform: rotate(-45deg);
+  transition: transform 150ms ease;
+  flex-shrink: 0;
+}
+.config-bloco[open] summary::after { transform: rotate(45deg); }
+.config-bloco summary:focus-visible {
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: 2px;
+}
+.ajuda { color: var(--cor-texto-suave); font-size: 0.85rem; margin: 4px 0 12px; }
+
+.cartao-tabela {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.cartao-tabela-cabecalho { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.selo { font-size: 0.75rem; padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+.selo-ok { background: var(--cor-ok-fundo); color: var(--cor-ok); }
+.selo-alerta { background: #fdf1e0; color: #8a5a00; }
+
+#texto-tabela {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  padding: 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.link-voltar { display: inline-block; margin-bottom: 10px; text-decoration: none; font-size: 0.9rem; }
+.observacao { color: var(--cor-texto-suave); font-style: italic; }
+
+/* Assinatura de autoria - autor do app, não relacionado ao produto. Mantém
+   crédito visível pra quem copiar o app não conseguir apagar sem também
+   apagar o link. */
+.assinatura {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  padding: 6px 4px;
+  border-radius: var(--raio);
+}
+.assinatura-texto { font-size: 0.75rem; color: var(--cor-texto-suave); }
+.assinatura-logo { height: 20px; width: auto; filter: var(--assinatura-filtro); opacity: 0.65; }
+.assinatura:hover .assinatura-logo, .assinatura:hover .assinatura-texto { opacity: 1; color: var(--cor-texto); }
+.assinatura-wrap { display: flex; justify-content: center; padding: 8px 0 4px; }
+
+.banner-atualizacao {
+  background: var(--cor-acento);
+  color: #3a2600;
+  text-align: center;
+  padding: 10px;
+  font-size: 0.9rem;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+/* [hidden] é a UA stylesheet (display:none) - como CSS de autor sempre
+   vence a UA stylesheet, "display: flex" direto em .banner-atualizacao
+   ficaria visível mesmo com o atributo hidden presente. Escopar o flex
+   aqui evita isso. */
+.banner-atualizacao:not([hidden]) {
+  display: flex;
+  /* acima do z-index:50 da tela-carregamento - se as duas aparecerem juntas
+     (SW antigo ainda no controle), o aviso pra recarregar tem que ganhar. */
+  position: relative;
+  z-index: 60;
+}
+.btn-atualizar-inline { padding: 4px 10px; min-height: auto; text-decoration: underline; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tab-bar-altura) + env(safe-area-inset-bottom) + 12px);
+  transform: translate(-50%, 8px);
+  z-index: 20;
+  max-width: min(90vw, 420px);
+  background: var(--cor-primaria-escura);
+  color: white;
+  border-radius: var(--raio);
+  padding: 12px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  opacity: 0;
+  transition: opacity 200ms ease, transform 200ms ease;
+  text-align: center;
+}
+.toast-visivel { opacity: 1; transform: translate(-50%, 0); }
+

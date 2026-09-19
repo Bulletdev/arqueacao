@@ -1,0 +1,24 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor
+.vscode/
+.idea/
+
+# Vercel (criado pelo `vercel link` / `vercel dev`)
+.vercel
+
+# Artefatos de teste local - PDF/Excel gerados testando o app e gravação de
+# tela, não fazem parte do produto (não confundir com images/, que tem as
+# fotos-fonte das tabelas do posto, essas sim versionadas).
+/pdf/
+/video/
+
+# Screenshots de apps concorrentes/brochure usados só como referência de UI
+# numa sessão de design - material de terceiros, não é fonte de dado do
+# produto nem deve ir pro repo.
+/images/referencias/
