@@ -77,6 +77,31 @@ const DB = {
     const tabelas = await DB.getAll("tabelas");
     if (tabelas.length === 0) {
       await DB.putMany("tabelas", Object.values(TABLES_DATA));
+    } else {
+      // Migração leve: resincroniza linhas/verificado/origem com
+      // TABLES_DATA (ex.: conferência nova, correção de bug nos dados) -
+      // mas só pra tabela que o usuário nunca editou manualmente pelo
+      // "Colar/substituir" (esse editor grava origem: "Editada manualmente
+      // em Configurações", sinal que preserva a edição do usuário).
+      const desatualizadas = tabelas.filter((t) => {
+        const padrao = TABLES_DATA[t.id];
+        return (
+          padrao &&
+          t.origem !== "Editada manualmente em Configurações" &&
+          t.origem !== padrao.origem
+        );
+      });
+      if (desatualizadas.length > 0) {
+        await DB.putMany(
+          "tabelas",
+          desatualizadas.map((t) => ({
+            ...t,
+            linhas: TABLES_DATA[t.id].linhas,
+            verificado: TABLES_DATA[t.id].verificado,
+            origem: TABLES_DATA[t.id].origem,
+          }))
+        );
+      }
     }
     const tanques = await DB.getAll("tanques");
     if (tanques.length === 0) {
