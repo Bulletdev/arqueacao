@@ -60,3 +60,17 @@ function uuid() {
     return v.toString(16);
   });
 }
+
+// Resultado da aferição em mL, sempre com sinal explícito (+60 mL / -40 mL):
+// no relatório o sinal é a informação principal (passou ou faltou).
+function formatMl(n) {
+  if (n === null || n === undefined) return "-";
+  const abs = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(Math.abs(n));
+  return (n > 0 ? "+" : n < 0 ? "-" : "") + abs + " mL";
+}
+
+function formatPct(n) {
+  if (n === null || n === undefined) return "-";
+  const abs = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(n));
+  return (n > 0 ? "+" : n < 0 ? "-" : "") + abs + "%";
+}

@@ -1,6 +1,6 @@
 // RF-09 - cache-first, 100% offline após a primeira abertura.
 // Suba a versão sempre que mudar qualquer arquivo da lista abaixo.
-const CACHE_VERSION = "arqueacao-v15";
+const CACHE_VERSION = "arqueacao-v21";
 
 const ARQUIVOS_PARA_CACHE = [
   "./",
@@ -8,15 +8,20 @@ const ARQUIVOS_PARA_CACHE = [
   "./manifest.json",
   "./css/styles.css",
   "./js/tables-data.js",
+  "./js/bicos-data.js",
   "./js/format.js",
   "./js/conversion.js",
+  "./js/afericao.js",
   "./js/db.js",
   "./js/ui.js",
   "./js/pdf.js",
+  "./js/afericao-pdf.js",
   "./js/excel.js",
   "./js/share.js",
   "./js/views/consulta.js",
   "./js/views/fechamento-detalhe.js",
+  "./js/views/afericao.js",
+  "./js/views/afericao-detalhe.js",
   "./js/views/historico.js",
   "./js/views/configuracoes.js",
   "./js/app.js",

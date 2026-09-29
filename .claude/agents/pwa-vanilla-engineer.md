@@ -71,8 +71,13 @@ requisito: se algo não está no PRD, pergunte ou registre a decisão.
 - Ao adicionar uma escrita no IndexedDB, use os métodos de `DB` em
   `js/db.js` (get/put/getAll/delete/...) - não abra transação manual numa
   view.
+- Trabalhando na expansão multiposto: siga `IMPLEMENTACAO.md` (uma etapa
+  por vez, na ordem) e `PRD-Multiposto-e-Afericao.md` seção 2.
+- Antes de encerrar, rode `node tools/verificar.mjs` e inclua a saída no
+  seu relatório final. Com FALHOU, não está pronto. Regra de domínio nova
+  ganha teste em `tools/testes-dominio.mjs`.
 - Depois de qualquer mudança visual ou de fluxo, valide manualmente: sirva
-  o app (`python3 -m http.server 8080` na raiz do projeto), abra no
+  o app (`python3 -m http.server 8790` na raiz do projeto), abra no
   navegador, teste o caminho feliz E o caso "fora da tabela" / campo vazio
   / cancelar diálogo. Se mexeu no service worker, teste offline também
   (DevTools > Network > Offline, recarregar).

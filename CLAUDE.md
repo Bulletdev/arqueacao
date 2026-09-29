@@ -9,6 +9,12 @@ impressa. Roda 100% offline, sem login, sem back-end. Ler
 `PRD-Arqueacao-PWA.md` primeiro - é a fonte de verdade do produto (RFs,
 critérios de aceite, modelo de dados, decisões já tomadas).
 
+**Expansão em andamento:** `PRD-Multiposto-e-Afericao.md`. Parte A =
+arqueação multiposto (plano etapa por etapa em `IMPLEMENTACAO.md`). Parte B
+= aferição de bicos, **implementada como aba "Aferição" deste app** (decisão
+do autor em 28/09/2026 - o PRD previa app separado; a pasta `../Afericao/`
+foi o protótipo separado e está obsoleta).
+
 Se o PRD e o código divergirem, o PRD manda - mas atualize o PRD junto se a
 divergência for uma decisão de produto nova, não um bug.
 
@@ -40,7 +46,11 @@ js/pdf.js               relatório PDF (RF-05)
 js/excel.js             relatório Excel (RF-06)
 js/share.js             Web Share API + fallback + copiar texto (RF-07)
 js/app.js               bootstrap + roteador hash (#/, #/historico, #/config, #/fechamento/:id)
+js/bicos-data.js        bicos pré-carregados da aferição (PROVISÓRIO) + tolerância/volume padrão
+js/afericao.js          regras da aferição - funções puras, testadas pelo harness
+js/afericao-pdf.js      PDF + texto de WhatsApp da aferição
 js/views/*.js            uma função render*(container) por tela
+                         (#/afericao, #/afericao/:id, #/historico/afericoes)
 manifest.json / sw.js    PWA - cache-first, precisa listar todo arquivo novo em sw.js
 images/                  fotos originais das tabelas do posto (fonte, não editar)
 ```
@@ -106,11 +116,35 @@ estritamente crescente (`tabelaValida` em `conversion.js` cobra isso).
   recalcule `leituras[].litros` de um fechamento salvo a partir da tabela
   atual. Se a tabela mudar depois, fechamentos antigos continuam como
   estavam.
+- **Aferição salva também é congelada:** `itens[].situacao`, `erroPct` e
+  `toleranciaMl` gravados no salvamento; mudar a tolerância depois não
+  reescreve aferições antigas. Regra de negócio da aferição só em
+  `js/afericao.js` (funções puras); as views não refazem conta.
+- **IndexedDB v2** (`DB_VERSION = 2`) adicionou `bicos`, `afericoes`,
+  `rascunho` - o upgrade só cria stores, nunca toca nas do v1.
 - **Sem login, sem perfis, sem telemetria/analytics** - decisão de produto
   explícita (seção 14 do PRD), não adicionar "de brinde".
 - Ao subir `CACHE_VERSION` em `sw.js`, o `app.js` já mostra o banner "Nova
   versão disponível" via `mostrarBannerAtualizacao` - não precisa de infra
   nova pra isso.
+
+## Harness de verificação - rode antes de dizer que terminou
+
+```
+node tools/verificar.mjs
+```
+
+Sem dependência (Node 18+). Reprova (exit 1) se: algum `.js` não compila;
+arquivo do `index.html` fora de `ARQUIVOS_PARA_CACHE` ou item da lista que
+não existe; `<script>`/`<link>` pra CDN; arquivo cacheado mudou e
+`CACHE_VERSION` não subiu; a assinatura de autoria sumiu; ou falha algum
+teste de regra de negócio em `tools/testes-dominio.mjs` (tabelas válidas,
+124 cm = 7.391 L, fora da tabela, perfis de posto...). Testes de etapas
+ainda não feitas aparecem como PENDENTE até o arquivo da etapa existir.
+
+Regra nova de domínio = teste novo em `tools/testes-dominio.mjs` na mesma
+mudança. Etapa do `IMPLEMENTACAO.md` só é marcada feita com a saída OK do
+verificador colada no registro.
 
 ## Rodando localmente
 

@@ -1,8 +1,11 @@
 // Camada de dados - IndexedDB puro (sem lib externa: menos peso pro PWA
-// offline e o schema é simples: 3 stores + 1 registro de config).
+// offline e o schema é simples).
+// v1: tabelas, tanques, fechamentos, config.
+// v2: + bicos, afericoes, rascunho (aba Aferição). O upgrade só cria stores
+//     novas - nada do v1 é tocado, quem já usa não perde histórico.
 
 const DB_NAME = "arqueacao-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function abrirDb() {
   return new Promise((resolve, reject) => {
@@ -21,6 +24,16 @@ function abrirDb() {
       }
       if (!db.objectStoreNames.contains("config")) {
         db.createObjectStore("config", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("bicos")) {
+        db.createObjectStore("bicos", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("afericoes")) {
+        const store = db.createObjectStore("afericoes", { keyPath: "id" });
+        store.createIndex("dataHora", "dataHora");
+      }
+      if (!db.objectStoreNames.contains("rascunho")) {
+        db.createObjectStore("rascunho", { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -120,13 +133,32 @@ const DB = {
         );
       }
     }
+    const bicos = await DB.getAll("bicos");
+    if (bicos.length === 0) {
+      await DB.putMany("bicos", BICOS_PADRAO);
+    }
     const config = await DB.get("config", "singleton");
     if (!config) {
       await DB.put("config", {
         id: "singleton",
         nomePosto: "",
         ultimoOperador: "",
-        versaoSchema: 1,
+        toleranciaMl: TOLERANCIA_PADRAO_ML,
+        volumePadraoL: VOLUME_PADRAO_TESTE_L,
+        ultimoResponsavel: "",
+        ultimoMedidor: "",
+        versaoSchema: 2,
+      });
+    } else if (config.versaoSchema !== 2) {
+      // Config de quem já usava antes da aba Aferição: completa só os
+      // campos novos, sem mexer em nome do posto/operador.
+      await DB.put("config", {
+        ...config,
+        toleranciaMl: config.toleranciaMl === undefined ? TOLERANCIA_PADRAO_ML : config.toleranciaMl,
+        volumePadraoL: config.volumePadraoL || VOLUME_PADRAO_TESTE_L,
+        ultimoResponsavel: config.ultimoResponsavel || "",
+        ultimoMedidor: config.ultimoMedidor || "",
+        versaoSchema: 2,
       });
     }
   },
@@ -151,21 +183,45 @@ const DB = {
     return fechamentos.sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
   },
 
+  async getBicosOrdenados() {
+    const bicos = await DB.getAll("bicos");
+    return bicos.sort((a, b) => a.ordem - b.ordem);
+  },
+
+  async getAfericoesOrdenadas() {
+    const afericoes = await DB.getAll("afericoes");
+    return afericoes.sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+  },
+
+  async getRascunhoAfericao() {
+    return DB.get("rascunho", "afericao");
+  },
+  async salvarRascunhoAfericao(rascunho) {
+    return DB.put("rascunho", { ...rascunho, id: "afericao" });
+  },
+  async descartarRascunhoAfericao() {
+    return DB.delete("rascunho", "afericao");
+  },
+
   // Backup completo (RF-04): exporta tudo, inclusive tabelas/tanques
   // personalizados, para JSON.
   async exportarBackup() {
-    const [tabelas, tanques, fechamentos, config] = await Promise.all([
+    const [tabelas, tanques, fechamentos, bicos, afericoes, config] = await Promise.all([
       DB.getAll("tabelas"),
       DB.getAll("tanques"),
       DB.getAll("fechamentos"),
+      DB.getAll("bicos"),
+      DB.getAll("afericoes"),
       DB.getConfig(),
     ]);
     return {
-      versao: 1,
+      versao: 2,
       geradoEm: new Date().toISOString(),
       tabelas,
       tanques,
       fechamentos,
+      bicos,
+      afericoes,
       config,
     };
   },
@@ -180,6 +236,16 @@ const DB = {
     await DB.putMany("tabelas", backup.tabelas || []);
     await DB.putMany("tanques", backup.tanques || []);
     await DB.putMany("fechamentos", backup.fechamentos || []);
+    // Backup v1 (antes da aba Aferição) não tem bicos/aferições: mantém os
+    // bicos atuais em vez de deixar a aba vazia.
+    if (Array.isArray(backup.bicos) && backup.bicos.length) {
+      await DB.clear("bicos");
+      await DB.putMany("bicos", backup.bicos);
+    }
+    if (Array.isArray(backup.afericoes)) {
+      await DB.clear("afericoes");
+      await DB.putMany("afericoes", backup.afericoes);
+    }
     if (backup.config) await DB.put("config", { ...backup.config, id: "singleton" });
   },
 };

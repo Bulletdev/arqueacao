@@ -1,11 +1,22 @@
-// RF-04 - histórico de fechamentos, com filtro por período.
+// RF-04 - histórico de fechamentos, com filtro por período. A mesma aba
+// também lista as aferições de bicos salvas (RF-B4), alternando pelo topo.
 
-async function renderHistorico(container) {
+function htmlAlternadorHistorico(ativo) {
+  return `
+    <nav class="alternador" aria-label="Tipo de registro">
+      <a href="#/historico" class="${ativo === "fechamentos" ? "ativo" : ""}">Fechamentos</a>
+      <a href="#/historico/afericoes" class="${ativo === "afericoes" ? "ativo" : ""}">Aferições</a>
+    </nav>`;
+}
+
+async function renderHistorico(container, tipo = "fechamentos") {
+  if (tipo === "afericoes") return renderHistoricoAfericoes(container);
   const todos = await DB.getFechamentosOrdenados();
 
   container.innerHTML = `
     <section class="tela tela-historico">
       <h1>Histórico</h1>
+      ${htmlAlternadorHistorico("fechamentos")}
       <div class="filtros-historico">
         <select id="filtro-periodo">
           <option value="todos">Todos</option>
@@ -79,4 +90,43 @@ async function renderHistorico(container) {
   });
 
   render();
+}
+
+async function renderHistoricoAfericoes(container) {
+  const todas = await DB.getAfericoesOrdenadas();
+
+  container.innerHTML = `
+    <section class="tela tela-historico">
+      <h1>Histórico</h1>
+      ${htmlAlternadorHistorico("afericoes")}
+      <ul class="lista-historico">
+        ${todas
+          .map((a) => {
+            const r = a.resumo || resumirAfericao(a.itens);
+            return `
+          <li>
+            <a href="#/afericao/${a.id}" class="item-historico">
+              <div class="item-historico-principal">
+                <strong>${formatDataHora(a.dataHora)}</strong>
+                <span>${escapeHtml(a.responsavel || "-")}</span>
+              </div>
+              <div class="item-historico-fim">
+                <div class="item-historico-resumo">
+                  <span class="selo selo-neutro">${r.testados} testados</span>
+                  ${r.fora ? `<span class="selo selo-fora">${r.fora} fora</span>` : `<span class="selo selo-ok">tudo ok</span>`}
+                </div>
+                <svg class="item-historico-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+            </a>
+          </li>`;
+          })
+          .join("")}
+      </ul>
+      <div class="estado-vazio" ${todas.length ? "hidden" : ""}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <p>Nenhuma aferição salva ainda.</p>
+        <a href="#/afericao" class="btn btn-primario">Fazer uma aferição</a>
+      </div>
+    </section>
+  `;
 }

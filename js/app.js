@@ -18,15 +18,24 @@ async function roteador() {
   const container = CONTAINER();
   marcarNavAtiva(hash);
 
+  document.body.classList.toggle("com-barra-afericao", hash === "#/afericao");
+
   const matchDetalhe = hash.match(/^#\/fechamento\/(.+)$/);
+  const matchAfericao = hash.match(/^#\/afericao\/(.+)$/);
 
   try {
     if (hash === "#/" || hash === "") {
       await renderConsulta(container);
     } else if (matchDetalhe) {
       await renderFechamentoDetalhe(container, decodeURIComponent(matchDetalhe[1]));
+    } else if (hash === "#/afericao") {
+      await renderAfericao(container);
+    } else if (matchAfericao) {
+      await renderAfericaoDetalhe(container, decodeURIComponent(matchAfericao[1]));
     } else if (hash === "#/historico") {
-      await renderHistorico(container);
+      await renderHistorico(container, "fechamentos");
+    } else if (hash === "#/historico/afericoes") {
+      await renderHistorico(container, "afericoes");
     } else if (hash === "#/config") {
       await renderConfiguracoes(container);
     } else {
@@ -41,7 +50,11 @@ async function roteador() {
 function marcarNavAtiva(hash) {
   document.querySelectorAll(".nav-link").forEach((a) => {
     const alvo = a.getAttribute("href");
-    const ativo = alvo === hash || (alvo === "#/" && (hash === "" || hash.startsWith("#/fechamento")));
+    const ativo =
+      alvo === hash ||
+      (alvo === "#/" && (hash === "" || hash.startsWith("#/fechamento"))) ||
+      (alvo === "#/historico" && hash.startsWith("#/historico")) ||
+      (alvo === "#/afericao" && hash.startsWith("#/afericao"));
     a.classList.toggle("ativo", ativo);
   });
 }
@@ -58,6 +71,12 @@ async function iniciar() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").then((reg) => {
+      // Versão nova que terminou de instalar num carregamento anterior fica
+      // em "waiting" e não dispara updatefound de novo - sem este check o
+      // aviso nunca aparece e o usuário fica preso na versão velha do cache.
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        mostrarBannerAtualizacao(reg);
+      }
       reg.addEventListener("updatefound", () => {
         const novoWorker = reg.installing;
         novoWorker.addEventListener("statechange", () => {
@@ -79,9 +98,13 @@ function esconderTelaCarregamento() {
   }, 250);
 }
 
+let _bannerAtualizacaoLigado = false;
+
 function mostrarBannerAtualizacao(reg) {
   const banner = document.getElementById("banner-atualizacao");
   banner.hidden = false;
+  if (_bannerAtualizacaoLigado) return;
+  _bannerAtualizacaoLigado = true;
   document.getElementById("btn-atualizar").addEventListener("click", () => {
     if (reg.waiting) reg.waiting.postMessage({ tipo: "SKIP_WAITING" });
   });
