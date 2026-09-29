@@ -80,7 +80,7 @@ async function renderConfiguracoes(container) {
           Tolerância (mL em 20 L)
           <input type="text" inputmode="numeric" id="cfg-tolerancia" value="${escapeHtml(tolTexto)}" placeholder="Em branco = só registrar" />
         </label>
-        <p class="ajuda">Usada pra marcar cada bico como dentro/fora. Vale só para as próximas aferições - as já salvas guardam a tolerância da época. Confirme o valor com o gerente.</p>
+        <p class="ajuda">Usada pra marcar cada bico como dentro/fora. Padrão: ±100 mL (±0,5%), erro máximo admitido pelo Inmetro nas verificações e inspeções (Portaria nº 227/2022, item 3.1.2). Vale só para as próximas aferições - as já salvas guardam a tolerância da época.</p>
         <label class="campo">
           Volume padrão do teste (L)
           <input type="text" inputmode="decimal" id="cfg-volume" value="${formatNumero(config.volumePadraoL || VOLUME_PADRAO_TESTE_L)}" />

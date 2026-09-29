@@ -591,7 +591,13 @@ dialog::backdrop { background: rgba(20,28,36,0.45); }
 .cartao-bico-nome strong { font-size: 1.05rem; white-space: nowrap; }
 .cartao-bico-nome span { color: var(--cor-texto-suave); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.linha-medida { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.teste-vazao { margin-top: 10px; }
+.teste-vazao + .teste-vazao { padding-top: 10px; border-top: 1px dashed var(--cor-borda); }
+.linha-medida { display: flex; align-items: center; gap: 8px; }
+.rotulo-vazao { flex: 0 0 52px; font-weight: 700; font-size: 0.85rem; color: var(--cor-texto-suave); }
+.leitura-vazao { margin-left: auto; text-align: right; font-size: 0.85rem; line-height: 1.2; }
+.linha-volume { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.dica-fora { color: var(--cor-erro); font-size: 0.85rem; font-weight: 600; }
 .grupo-sinal { display: flex; border: 1px solid var(--cor-borda); border-radius: var(--raio); overflow: hidden; margin-top: 8px; }
 .btn-sinal {
   appearance: none; border: none; background: var(--cor-superficie); color: var(--cor-texto-suave);
@@ -620,7 +626,7 @@ dialog::backdrop { background: rgba(20,28,36,0.45); }
 .linha-leitura-bico { margin-top: 6px; min-height: 0; }
 .linha-leitura-bico:empty { display: none; }
 .valor-erro { font-weight: 700; font-size: 0.95rem; color: var(--cor-texto-suave); }
-.situacao-fora .valor-erro { color: var(--cor-erro); }
+.valor-erro.valor-fora { color: var(--cor-erro); }
 .situacao-ok .valor-erro { color: var(--cor-ok); }
 .dica-sinal { color: #8a5a00; font-size: 0.82rem; font-weight: 600; }
 
@@ -692,13 +698,14 @@ body.com-barra-afericao main#app { padding-bottom: calc(var(--tab-bar-altura) + 
 /* Na aba Aferição a barra fixa de progresso ocupa o lugar do toast. */
 body.com-barra-afericao .toast { bottom: calc(var(--tab-bar-altura) + env(safe-area-inset-bottom) + 84px); }
 
-/* Tela larga (PC): mL, Faltou/Passou e volume numa linha só, em vez de
-   empilhar com botões esticados em 700px de largura. No celular continua
-   empilhado (mL + volume em cima, botões embaixo na largura toda). */
+/* Tela larga (PC): cada vazão numa linha só - rótulo, mL, Faltou/Passou e
+   o resultado - em vez de empilhar com botões esticados em 700px. No
+   celular fica empilhado (mL em cima, botões embaixo na largura toda). */
 @media (min-width: 600px) {
-  .linha-entrada { display: flex; align-items: center; gap: 12px; }
-  .linha-entrada .linha-medida { display: contents; }
-  .linha-entrada .campo-ml { order: 1; }
-  .linha-entrada .grupo-sinal { order: 2; margin-top: 0; flex: 0 0 260px; }
-  .linha-entrada .campo-volume { order: 3; margin-left: auto; }
+  .teste-vazao { display: flex; align-items: center; gap: 12px; }
+  .teste-vazao .linha-medida { display: contents; }
+  .teste-vazao .rotulo-vazao { order: 1; }
+  .teste-vazao .campo-ml { order: 2; }
+  .teste-vazao .grupo-sinal { order: 3; margin-top: 0; flex: 0 0 240px; }
+  .teste-vazao .leitura-vazao { order: 4; }
 }

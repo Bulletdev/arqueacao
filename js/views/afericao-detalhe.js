@@ -3,11 +3,12 @@
 // congelados no salvamento - nada é recalculado aqui.
 
 async function renderAfericaoDetalhe(container, id) {
-  const afericao = await DB.get("afericoes", id);
-  if (!afericao) {
+  const salva = await DB.get("afericoes", id);
+  if (!salva) {
     container.innerHTML = `<section class="tela"><a href="#/historico/afericoes" class="link-voltar">‹ Aferições salvas</a><p class="alerta alerta-erro">Aferição não encontrada.</p></section>`;
     return;
   }
+  const afericao = { ...salva, itens: salva.itens.map(normalizarItem) };
   const r = afericao.resumo || resumirAfericao(afericao.itens);
   const tol = afericao.toleranciaMl === null ? "sem tolerância" : `±${formatNumero(afericao.toleranciaMl)} mL em 20 L`;
 
@@ -25,6 +26,7 @@ async function renderAfericaoDetalhe(container, id) {
         <span class="selo selo-ok">${r.ok} dentro</span>
         ${r.fora ? `<span class="selo selo-fora">${r.fora} fora</span>` : ""}
         ${r.naoTestados ? `<span class="selo selo-neutro">${r.naoTestados} não testados</span>` : ""}
+        ${r.incompletos ? `<span class="selo selo-alerta">${r.incompletos} com uma vazão só</span>` : ""}
         ${r.vazios ? `<span class="selo selo-alerta">${r.vazios} sem resultado</span>` : ""}
       </div>
 
@@ -41,7 +43,15 @@ async function renderAfericaoDetalhe(container, id) {
           <div class="linha-item ${i.situacao === "fora" ? "fora" : ""}">
             <div class="linha-item-rotulo"><strong>Bico ${String(i.numero).padStart(2, "0")}</strong><span>${escapeHtml(i.produto)} · bomba ${i.bomba}</span></div>
             <div class="linha-item-valor ${i.situacao === "fora" ? "fora" : ""}">
-              ${i.naoTestado ? "Não testado" : i.resultadoMl === null ? "Sem resultado" : `${formatMl(i.resultadoMl)} <small>(${formatPct(i.erroPct)})</small>`}
+              ${
+                i.naoTestado
+                  ? "Não testado"
+                  : VAZOES.map((v) => {
+                      const ml = v === "rapida" ? i.resultadoRapidaMl : i.resultadoLentaMl;
+                      const pct = v === "rapida" ? i.erroRapidaPct : i.erroLentaPct;
+                      return `<div><small>${v === "rapida" ? "Rápida" : "Lenta"}</small> ${ml === null || ml === undefined ? "-" : `${formatMl(ml)} <small>(${formatPct(pct)})</small>`}</div>`;
+                    }).join("")
+              }
             </div>
             ${i.observacao ? `<div class="linha-item-obs">${escapeHtml(i.observacao)}</div>` : ""}
           </div>`

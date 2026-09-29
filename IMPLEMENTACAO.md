@@ -83,7 +83,8 @@ adiciona o perfil em `POSTOS`, o verificador passa, e o link
 - [x] Histórico com alternância Fechamentos | Aferições
 - [x] Configurações: tolerância, volume padrão, CRUD de bicos, backup v2
 - [ ] Trocar `BICOS_PADRAO` (provisório) pela lista real do gerente
-- [ ] Confirmar a tolerância (hoje ±100 mL em 20 L) com o gerente
+- [x] Tolerância ±100 mL em 20 L conferida: Portaria Inmetro 227/2022, item 3.1.2
+- [x] Duas vazões por bico (rápida e lenta) com a regra da soma de sinais opostos - RTM item 6.4 (confirmado pelo usuário 28/09/2026)
 - [ ] Testar compartilhar PDF num Android real
 
 ## Registro
@@ -91,4 +92,5 @@ adiciona o perfil em `POSTOS`, o verificador passa, e o link
 | Etapa | Data | Saída do verificador | Commit |
 |---|---|---|---|
 | B (aba Aferição) | 28/09/2026 | OK - 95 checagens passaram (sintaxe, offline, cdn, cache-version, assinatura, dominio) | "Adiciona aba Aferição de bicos" |
+| B (duas vazões) | 28/09/2026 | OK - 98 checagens passaram (sintaxe, offline, cdn, cache-version, assinatura, dominio) | "Aferição testa cada bico em duas vazões" |
 | | | | |

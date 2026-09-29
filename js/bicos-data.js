@@ -6,7 +6,11 @@
 // com 4 bicos e 2 bombas de diesel com 3 bicos. Depois da primeira abertura
 // os bicos vivem no IndexedDB e são editados em Configurações > Bicos.
 
-const TOLERANCIA_PADRAO_ML = 100; // por 20 L - confirmar com o gerente
+// ±0,5% = ±100 mL em 20 L: erro máximo admissível nas verificações
+// subsequentes e inspeção, item 3.1.2 do RTM aprovado pela Portaria Inmetro
+// nº 227/2022 (vigente desde 01/07/2022). A tabela "60 mL a menos / 100 mL a
+// mais" que ainda circula em notícias é da Portaria 294/2018 e foi substituída.
+const TOLERANCIA_PADRAO_ML = 100;
 const VOLUME_PADRAO_TESTE_L = 20;
 
 const BICOS_PADRAO = (() => {

@@ -40,8 +40,26 @@ function novoRascunho(bicos, config) {
     responsavel: config.ultimoResponsavel || "",
     medidorPadrao: config.ultimoMedidor || "",
     observacao: "",
-    itens: montarItens(bicos, config.volumePadraoL || VOLUME_PADRAO_TESTE_L).map((i) => ({ ...i, sinal: null, valorTexto: "" })),
+    itens: montarItens(bicos, config.volumePadraoL || VOLUME_PADRAO_TESTE_L).map((i) => ({
+      ...i,
+      texto: { rapida: "", lenta: "" },
+      sinal: { rapida: null, lenta: null },
+    })),
     criadoEm: new Date().toISOString(),
+  };
+}
+
+// Rascunho aberto antes das duas vazões (um campo só por bico): o que foi
+// digitado vira a vazão rápida, pra ninguém perder o preenchido.
+function normalizarItemRascunho(item) {
+  if (item.texto) return item;
+  const { valorTexto, sinal, resultadoMl, ...resto } = item;
+  return {
+    ...resto,
+    resultadoRapidaMl: resultadoMl ?? null,
+    resultadoLentaMl: null,
+    texto: { rapida: valorTexto || "", lenta: "" },
+    sinal: { rapida: sinal ?? null, lenta: null },
   };
 }
 
@@ -60,6 +78,7 @@ async function renderAfericao(container) {
     const bicos = await DB.getBicosOrdenados();
     rascunho = novoRascunho(bicos, config);
   }
+  rascunho.itens = rascunho.itens.map(normalizarItemRascunho);
   const tolerancia = config.toleranciaMl;
 
   const grupos = [];
@@ -137,43 +156,59 @@ async function renderAfericao(container) {
     const item = rascunho.itens[idx];
     const el = document.getElementById(`bico-${idx}`);
     if (!el) return;
-    item.resultadoMl = item.naoTestado ? null : resultadoDoCampo(item.valorTexto, item.sinal);
+    for (const v of VAZOES) {
+      item[v === "rapida" ? "resultadoRapidaMl" : "resultadoLentaMl"] = item.naoTestado
+        ? null
+        : resultadoDoCampo(item.texto[v], item.sinal[v]);
+    }
     const situacao = classificarSituacao(item, tolerancia);
+    const temTolerancia = tolerancia !== null && tolerancia !== undefined && tolerancia !== "";
+    const fora = temTolerancia ? detalharFora(item, tolerancia) : null;
     el.className = `cartao-bico situacao-${situacao}`;
 
     el.querySelectorAll(".btn-sinal").forEach((b) => {
-      b.setAttribute("aria-pressed", String(Number(b.dataset.sinal) === item.sinal));
+      b.setAttribute("aria-pressed", String(Number(b.dataset.sinal) === item.sinal[b.dataset.vazao]));
       b.disabled = item.naoTestado;
     });
-    el.querySelector('[data-campo="valor"]').disabled = item.naoTestado;
-    el.querySelector('[data-campo="volume"]').disabled = item.naoTestado;
+    el.querySelectorAll('[data-campo="valor"], [data-campo="volume"]').forEach((i) => (i.disabled = item.naoTestado));
     el.querySelector('[data-campo="obs"]').placeholder = item.naoTestado ? "Motivo (obrigatório)" : "Observação (opcional)";
 
     const selo = el.querySelector("[data-selo]");
-    const classesSelo = { ok: "selo-ok", fora: "selo-fora", nao_testado: "selo-neutro", sem_criterio: "selo-neutro" };
+    const classesSelo = { ok: "selo-ok", fora: "selo-fora", nao_testado: "selo-neutro", sem_criterio: "selo-neutro", incompleto: "selo-alerta" };
     selo.hidden = situacao === "vazio";
     selo.className = `selo ${classesSelo[situacao] || ""}`;
     selo.textContent = SITUACAO_ROTULO[situacao] || "";
 
-    const leitura = el.querySelector("[data-erro]");
-    const valorDigitado = String(item.valorTexto || "").trim();
-    if (item.naoTestado) {
-      leitura.innerHTML = "";
-    } else if (item.resultadoMl !== null) {
-      leitura.innerHTML = `<span class="valor-erro">${formatMl(item.resultadoMl)} · ${formatPct(calcularErroPct(item.resultadoMl, item.volumeL))}</span>`;
-    } else if (/^\d+$/.test(valorDigitado) && !item.sinal) {
-      leitura.innerHTML = `<span class="dica-sinal">Toque em Passou ou Faltou</span>`;
-    } else if (valorDigitado) {
-      leitura.innerHTML = `<span class="dica-sinal">Digite só números (mL inteiros)</span>`;
-    } else {
-      leitura.innerHTML = "";
+    for (const v of VAZOES) {
+      const leitura = el.querySelector(`[data-leitura="${v}"]`);
+      const ml = v === "rapida" ? item.resultadoRapidaMl : item.resultadoLentaMl;
+      const digitado = String(item.texto[v] || "").trim();
+      if (item.naoTestado) {
+        leitura.innerHTML = "";
+      } else if (ml !== null && ml !== undefined) {
+        const classe = fora && fora[v] ? "valor-erro valor-fora" : "valor-erro";
+        leitura.innerHTML = `<span class="${classe}">${formatMl(ml)} · ${formatPct(calcularErroPct(ml, item.volumeL))}</span>`;
+      } else if (/^\d+$/.test(digitado) && !item.sinal[v]) {
+        leitura.innerHTML = `<span class="dica-sinal">Passou ou faltou?</span>`;
+      } else if (digitado) {
+        leitura.innerHTML = `<span class="dica-sinal">Só números (mL)</span>`;
+      } else {
+        leitura.innerHTML = "";
+      }
     }
+
+    const nota = el.querySelector("[data-erro]");
+    nota.innerHTML =
+      !item.naoTestado && fora && fora.estourouSoma
+        ? `<span class="dica-fora">Rápida e lenta em sentidos opostos somam ${formatNumero(fora.somaOpostos)} mL (limite ${formatNumero(fora.limiteMl)} mL).</span>`
+        : "";
   }
 
   function atualizarBarra() {
     const total = rascunho.itens.length;
-    const preenchidos = rascunho.itens.filter((i) => i.naoTestado || i.resultadoMl !== null).length;
-    const fora = rascunho.itens.filter((i) => classificarSituacao(i, tolerancia) === "fora").length;
+    const situacoes = rascunho.itens.map((i) => classificarSituacao(i, tolerancia));
+    const preenchidos = situacoes.filter((s) => s !== "vazio" && s !== "incompleto").length;
+    const fora = situacoes.filter((s) => s === "fora").length;
     document.getElementById("progresso-texto").innerHTML =
       `${preenchidos} de ${total} bicos` + (fora ? ` · <span class="fora">${fora} fora</span>` : "");
     document.getElementById("progresso-barra").style.width = total ? `${(preenchidos / total) * 100}%` : "0%";
@@ -207,11 +242,12 @@ async function renderAfericao(container) {
     if (!btn) return;
     const idx = Number(btn.closest(".cartao-bico").dataset.idx);
     const item = rascunho.itens[idx];
+    const v = btn.dataset.vazao;
     const sinal = Number(btn.dataset.sinal);
-    item.sinal = item.sinal === sinal ? null : sinal;
+    item.sinal[v] = item.sinal[v] === sinal ? null : sinal;
     mudou(idx);
-    if (item.sinal && !String(item.valorTexto || "").trim()) {
-      document.querySelector(`#bico-${idx} [data-campo="valor"]`).focus();
+    if (item.sinal[v] && !String(item.texto[v] || "").trim()) {
+      document.querySelector(`#bico-${idx} [data-campo="valor"][data-vazao="${v}"]`).focus();
     }
   });
   tela.addEventListener("input", (ev) => {
@@ -221,7 +257,7 @@ async function renderAfericao(container) {
     const item = rascunho.itens[idx];
     const campo = ev.target.dataset.campo;
     if (campo === "valor") {
-      item.valorTexto = ev.target.value;
+      item.texto[ev.target.dataset.vazao] = ev.target.value;
     } else if (campo === "volume") {
       const v = Number(String(ev.target.value).replace(",", "."));
       if (v > 0) item.volumeL = v;
@@ -261,7 +297,7 @@ async function renderAfericao(container) {
     }
     errosEl.hidden = true;
     if (avisos.length) {
-      const ok = await confirmarAcao(`${escapeHtml(avisos.join(" "))} Eles vão aparecer como "sem resultado" no relatório. Salvar assim mesmo?`, {
+      const ok = await confirmarAcao(`${escapeHtml(avisos.join(" "))} O que faltar vai aparecer em branco no relatório. Salvar assim mesmo?`, {
         textoConfirmar: "Salvar assim",
       });
       if (!ok) return;
@@ -279,6 +315,22 @@ async function renderAfericao(container) {
 
 function htmlCartaoBico(item, idx) {
   const nomeProduto = PRODUTOS_NOMES[item.produto] ? ` · ${PRODUTOS_NOMES[item.produto]}` : "";
+  const htmlVazao = (v) => `
+      <div class="teste-vazao">
+        <div class="linha-medida">
+          <span class="rotulo-vazao">${v === "rapida" ? "Rápida" : "Lenta"}</span>
+          <label class="campo-ml">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" data-campo="valor" data-vazao="${v}"
+                   value="${escapeHtml(item.texto[v] || "")}" placeholder="0" aria-label="Bico ${item.numero}, ${VAZAO_ROTULO[v].toLowerCase()}: diferença em mL" />
+            <span>mL</span>
+          </label>
+          <div class="leitura-vazao" data-leitura="${v}"></div>
+        </div>
+        <div class="grupo-sinal" role="group" aria-label="Bico ${item.numero}, ${VAZAO_ROTULO[v].toLowerCase()}: passou ou faltou">
+          <button type="button" class="btn-sinal sinal-menos" data-vazao="${v}" data-sinal="-1" aria-pressed="false">- Faltou</button>
+          <button type="button" class="btn-sinal sinal-mais" data-vazao="${v}" data-sinal="1" aria-pressed="false">+ Passou</button>
+        </div>
+      </div>`;
   return `
     <div class="cartao-bico" id="bico-${idx}" data-idx="${idx}">
       <div class="cartao-bico-topo">
@@ -288,31 +340,21 @@ function htmlCartaoBico(item, idx) {
         </div>
         <span class="selo" data-selo hidden></span>
       </div>
-      <div class="linha-entrada">
-      <div class="linha-medida">
-        <label class="campo-ml">
-          <input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" data-campo="valor"
-                 value="${escapeHtml(item.valorTexto || "")}" placeholder="0" aria-label="Bico ${item.numero}: diferença em mL" />
-          <span>mL</span>
-        </label>
+      ${VAZOES.map(htmlVazao).join("")}
+      <div class="linha-leitura-bico" data-erro></div>
+      <div class="linha-volume">
         <label class="campo-volume">
           <span>teste de</span>
           <input type="text" inputmode="decimal" data-campo="volume" value="${formatNumero(item.volumeL)}" aria-label="Bico ${item.numero}: volume do teste em litros" />
           <span>L</span>
         </label>
-      </div>
-      <div class="grupo-sinal" role="group" aria-label="Bico ${item.numero}: passou ou faltou">
-        <button type="button" class="btn-sinal sinal-menos" data-sinal="-1" aria-pressed="false">- Faltou</button>
-        <button type="button" class="btn-sinal sinal-mais" data-sinal="1" aria-pressed="false">+ Passou</button>
-      </div>
-      </div>
-      <div class="linha-leitura-bico" data-erro></div>
-      <div class="linha-obs">
-        <input type="text" data-campo="obs" value="${escapeHtml(item.observacao || "")}" aria-label="Bico ${item.numero}: observação" />
         <label class="check-nao-testado">
           <input type="checkbox" data-campo="nao-testado" ${item.naoTestado ? "checked" : ""} />
           Não testado
         </label>
+      </div>
+      <div class="linha-obs">
+        <input type="text" data-campo="obs" value="${escapeHtml(item.observacao || "")}" aria-label="Bico ${item.numero}: observação" />
       </div>
     </div>`;
 }

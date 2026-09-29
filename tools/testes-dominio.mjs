@@ -13,7 +13,11 @@ const COM_POSTOS = [...BASE, "js/postos-data.js"];
 const LOGICA = ["js/format.js", "js/afericao.js"];
 const COM_BICOS = [...LOGICA, "js/bicos-data.js"];
 
-const item = (o) => JSON.stringify({ resultadoMl: null, volumeL: 20, naoTestado: false, observacao: "", ...o });
+// Item da aferição: cada bico é testado em duas vazões (RTM Portaria Inmetro
+// 227/2022, item 6.4): rápida (Q2, perto da máxima) e lenta (Q1, perto da mínima).
+const item = (o) =>
+  JSON.stringify({ resultadoRapidaMl: null, resultadoLentaMl: null, volumeL: 20, naoTestado: false, observacao: "", ...o });
+const R = (rapida, lenta, extra = {}) => item({ resultadoRapidaMl: rapida, resultadoLentaMl: lenta, ...extra });
 
 export default [
   // ---------- regras já existentes (MVP) ----------
@@ -88,83 +92,124 @@ export default [
     },
   },
   {
-    nome: "classificarSituacao: limite é inclusivo (±100 em 20 L = ok, 101 = fora), vale pra + e -",
+    nome: "classificarSituacao: cada teste até ±100 mL/20 L (inclusivo); 101 em qualquer vazão = fora",
     etapa: "B2",
     exige: ["js/afericao.js"],
     scripts: LOGICA,
     rodar(avaliar) {
       const r = avaliar(`[
-        classificarSituacao(${item({ resultadoMl: 100 })}, 100),
-        classificarSituacao(${item({ resultadoMl: -100 })}, 100),
-        classificarSituacao(${item({ resultadoMl: 101 })}, 100),
-        classificarSituacao(${item({ resultadoMl: -150 })}, 100),
-        classificarSituacao(${item({ resultadoMl: 0 })}, 100),
+        classificarSituacao(${R(100, 0)}, 100),
+        classificarSituacao(${R(-100, 0)}, 100),
+        classificarSituacao(${R(60, 90)}, 100),
+        classificarSituacao(${R(101, 0)}, 100),
+        classificarSituacao(${R(0, -150)}, 100),
       ]`);
-      return JSON.stringify(r) === JSON.stringify(["ok", "ok", "fora", "fora", "ok"]) || `deu ${JSON.stringify(r)}`;
+      const esperado = ["ok", "ok", "ok", "fora", "fora"];
+      return JSON.stringify(r) === JSON.stringify(esperado) || `deu ${JSON.stringify(r)}`;
     },
   },
   {
-    nome: "classificarSituacao: tolerância é por 20 L e escala com o volume (10 L → limite 50 mL)",
+    nome: "classificarSituacao: sinais opostos - soma dos módulos até 100 mL ok, acima = fora (RTM 6.4 e)",
     etapa: "B2",
     exige: ["js/afericao.js"],
     scripts: LOGICA,
     rodar(avaliar) {
       const r = avaliar(`[
-        classificarSituacao(${item({ resultadoMl: 50, volumeL: 10 })}, 100),
-        classificarSituacao(${item({ resultadoMl: 60, volumeL: 10 })}, 100),
+        classificarSituacao(${R(60, -40)}, 100),
+        classificarSituacao(${R(60, -50)}, 100),
+        classificarSituacao(${R(-70, 40)}, 100),
+        classificarSituacao(${R(0, -100)}, 100),
       ]`);
-      return JSON.stringify(r) === JSON.stringify(["ok", "fora"]) || `deu ${JSON.stringify(r)}`;
+      const esperado = ["ok", "fora", "fora", "ok"];
+      return JSON.stringify(r) === JSON.stringify(esperado) || `deu ${JSON.stringify(r)}`;
     },
   },
   {
-    nome: "classificarSituacao: vazio, não testado e sem critério (tolerância null)",
+    nome: "classificarSituacao: tolerância escala com o volume (10 L → limite 50 mL, inclusive na soma)",
     etapa: "B2",
     exige: ["js/afericao.js"],
     scripts: LOGICA,
     rodar(avaliar) {
       const r = avaliar(`[
-        classificarSituacao(${item({})}, 100),
-        classificarSituacao(${item({ naoTestado: true, observacao: "em manutenção" })}, 100),
-        classificarSituacao(${item({ naoTestado: true, resultadoMl: 30 })}, 100),
-        classificarSituacao(${item({ resultadoMl: 500 })}, null),
+        classificarSituacao(${R(50, 0, { volumeL: 10 })}, 100),
+        classificarSituacao(${R(60, 0, { volumeL: 10 })}, 100),
+        classificarSituacao(${R(30, -30, { volumeL: 10 })}, 100),
       ]`);
-      return JSON.stringify(r) === JSON.stringify(["vazio", "nao_testado", "nao_testado", "sem_criterio"]) || `deu ${JSON.stringify(r)}`;
+      return JSON.stringify(r) === JSON.stringify(["ok", "fora", "fora"]) || `deu ${JSON.stringify(r)}`;
     },
   },
   {
-    nome: "validarAfericao: não testado sem observação é ERRO; bico vazio é só AVISO; sem responsável é erro",
+    nome: "classificarSituacao: vazio, incompleto (só uma vazão), não testado, sem critério",
+    etapa: "B2",
+    exige: ["js/afericao.js"],
+    scripts: LOGICA,
+    rodar(avaliar) {
+      const r = avaliar(`[
+        classificarSituacao(${R(null, null)}, 100),
+        classificarSituacao(${R(30, null)}, 100),
+        classificarSituacao(${R(null, 150)}, 100),
+        classificarSituacao(${R(30, 20, { naoTestado: true, observacao: "em manutenção" })}, 100),
+        classificarSituacao(${R(500, 10)}, null),
+        classificarSituacao(${R(500, null)}, null),
+      ]`);
+      const esperado = ["vazio", "incompleto", "fora", "nao_testado", "sem_criterio", "incompleto"];
+      return JSON.stringify(r) === JSON.stringify(esperado) || `deu ${JSON.stringify(r)}`;
+    },
+  },
+  {
+    nome: "detalharFora: diz qual vazão estourou e a soma quando os sinais são opostos",
+    etapa: "B2",
+    exige: ["js/afericao.js"],
+    scripts: LOGICA,
+    rodar(avaliar) {
+      const r = avaliar(`[
+        detalharFora(${R(150, 20)}, 100),
+        detalharFora(${R(60, -50)}, 100),
+        detalharFora(${R(60, 50)}, 100),
+      ]`);
+      const [a, b, c] = r;
+      const ok =
+        a.rapida === true && a.lenta === false && a.somaOpostos === null &&
+        b.rapida === false && b.lenta === false && b.somaOpostos === 110 && b.estourouSoma === true &&
+        c.somaOpostos === null && c.estourouSoma === false && a.limiteMl === 100;
+      return ok || `deu ${JSON.stringify(r)}`;
+    },
+  },
+  {
+    nome: "validarAfericao: não testado sem obs = ERRO; bico vazio ou com só uma vazão = AVISO; sem responsável = erro",
     etapa: "B2",
     exige: ["js/afericao.js"],
     scripts: LOGICA,
     rodar(avaliar) {
       const r = avaliar(`(() => {
         const base = { responsavel: "João", itens: [] };
-        const a = validarAfericao({ ...base, itens: [${item({ resultadoMl: 10 })}] });
-        const b = validarAfericao({ ...base, itens: [${item({ naoTestado: true, observacao: "  " })}] });
-        const c = validarAfericao({ ...base, itens: [${item({})}] });
-        const d = validarAfericao({ responsavel: "", itens: [${item({ resultadoMl: 0 })}] });
-        return [a.erros.length, a.avisos.length, b.erros.length, c.erros.length, c.avisos.length, d.erros.length];
+        const a = validarAfericao({ ...base, itens: [${R(10, -5)}] });
+        const b = validarAfericao({ ...base, itens: [${R(null, null, { naoTestado: true, observacao: "  " })}] });
+        const c = validarAfericao({ ...base, itens: [${R(null, null)}] });
+        const d = validarAfericao({ responsavel: "", itens: [${R(0, 0)}] });
+        const e = validarAfericao({ ...base, itens: [${R(10, null)}] });
+        return [a.erros.length, a.avisos.length, b.erros.length, c.erros.length, c.avisos.length, d.erros.length, e.erros.length, e.avisos.length];
       })()`);
-      return JSON.stringify(r) === JSON.stringify([0, 0, 1, 0, 1, 1]) || `[erros/avisos] deu ${JSON.stringify(r)}`;
+      return JSON.stringify(r) === JSON.stringify([0, 0, 1, 0, 1, 1, 0, 1]) || `[erros/avisos] deu ${JSON.stringify(r)}`;
     },
   },
   {
-    nome: "resumirAfericao conta testados/ok/fora/não testados/vazios",
+    nome: "resumirAfericao conta testados/ok/fora/não testados/vazios/incompletos",
     etapa: "B2",
     exige: ["js/afericao.js"],
     scripts: LOGICA,
     rodar(avaliar) {
       const r = avaliar(`resumirAfericao([
         { situacao: "ok" }, { situacao: "ok" }, { situacao: "fora" },
-        { situacao: "nao_testado" }, { situacao: "vazio" }, { situacao: "sem_criterio" },
+        { situacao: "nao_testado" }, { situacao: "vazio" }, { situacao: "sem_criterio" }, { situacao: "incompleto" },
       ])`);
-      const esperado = { testados: 4, ok: 2, fora: 1, naoTestados: 1, vazios: 1 };
+      const esperado = { testados: 4, ok: 2, fora: 1, naoTestados: 1, vazios: 1, incompletos: 1 };
       const ok = Object.entries(esperado).every(([k, v]) => r[k] === v);
       return ok || `deu ${JSON.stringify(r)}`;
     },
   },
   {
-    nome: "montarItens: só bicos ativos, na ordem, com volume padrão e dados COPIADOS do bico",
+    nome: "montarItens: só bicos ativos, na ordem, volume padrão, duas vazões vazias, dados COPIADOS",
     etapa: "B2",
     exige: ["js/afericao.js"],
     scripts: LOGICA,
@@ -177,25 +222,38 @@ export default [
         ];
         const itens = montarItens(bicos, 20);
         bicos[1].produto = "MUDOU";
-        return itens.map(i => [i.bicoId, i.numero, i.bomba, i.produto, i.volumeL, i.resultadoMl]);
+        return itens.map(i => [i.bicoId, i.numero, i.bomba, i.produto, i.volumeL, i.resultadoRapidaMl, i.resultadoLentaMl]);
       })()`);
-      const esperado = [["b1", 1, 1, "GC", 20, null], ["b2", 2, 1, "GA", 20, null]];
+      const esperado = [["b1", 1, 1, "GC", 20, null, null], ["b2", 2, 1, "GA", 20, null, null]];
       return JSON.stringify(r) === JSON.stringify(esperado) || `deu ${JSON.stringify(r)}`;
     },
   },
   {
-    nome: "congelarAfericao grava situacao e erroPct em cada item com a tolerância do momento",
+    nome: "congelarAfericao grava situação e erro % das duas vazões com a tolerância do momento",
     etapa: "B3",
     exige: ["js/afericao.js"],
     scripts: LOGICA,
     rodar(avaliar) {
       const r = avaliar(`(() => {
-        if (typeof congelarAfericao !== "function") return "congelarAfericao(rascunho, toleranciaMl) não definida";
-        const a = congelarAfericao({ responsavel: "João", itens: [${item({ resultadoMl: 150 })}, ${item({ resultadoMl: 20 })}] }, 100);
-        return [a.toleranciaMl, a.itens[0].situacao, a.itens[1].situacao, a.itens[0].erroPct, typeof a.id, typeof a.criadoEm];
+        const a = congelarAfericao({ responsavel: "João", itens: [${R(150, 20)}, ${R(20, -10)}] }, 100);
+        const i = a.itens[0];
+        return [a.toleranciaMl, i.situacao, a.itens[1].situacao, i.erroRapidaPct, i.erroLentaPct, typeof a.id, a.resumo.fora];
       })()`);
-      if (typeof r === "string") return r;
-      return JSON.stringify(r) === JSON.stringify([100, "fora", "ok", 0.75, "string", "string"]) || `deu ${JSON.stringify(r)}`;
+      return JSON.stringify(r) === JSON.stringify([100, "fora", "ok", 0.75, 0.1, "string", 1]) || `deu ${JSON.stringify(r)}`;
+    },
+  },
+  {
+    nome: "normalizarItem: aferição salva antes das duas vazões (resultadoMl) vira vazão rápida, sem perder nada",
+    etapa: "B3",
+    exige: ["js/afericao.js"],
+    scripts: LOGICA,
+    rodar(avaliar) {
+      const r = avaliar(`(() => {
+        const antigo = normalizarItem({ numero: 1, resultadoMl: 40, erroPct: 0.2, situacao: "ok", volumeL: 20 });
+        const novo = normalizarItem(JSON.parse('${R(10, -20)}'));
+        return [antigo.resultadoRapidaMl, antigo.resultadoLentaMl, antigo.erroRapidaPct, antigo.situacao, novo.resultadoLentaMl];
+      })()`);
+      return JSON.stringify(r) === JSON.stringify([40, null, 0.2, "ok", -20]) || `deu ${JSON.stringify(r)}`;
     },
   },
   {

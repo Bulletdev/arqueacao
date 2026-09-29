@@ -116,8 +116,11 @@ estritamente crescente (`tabelaValida` em `conversion.js` cobra isso).
   recalcule `leituras[].litros` de um fechamento salvo a partir da tabela
   atual. Se a tabela mudar depois, fechamentos antigos continuam como
   estavam.
-- **Aferição salva também é congelada:** `itens[].situacao`, `erroPct` e
-  `toleranciaMl` gravados no salvamento; mudar a tolerância depois não
+- **Aferição: duas vazões por bico** (rápida e lenta, RTM Portaria Inmetro
+  227/2022 item 6.4; tolerância ±0,5% = ±100 mL/20 L, item 3.1.2). Com
+  sinais opostos, a soma dos módulos também tem que caber na tolerância.
+- **Aferição salva também é congelada:** `itens[].situacao`, `erroRapidaPct`,
+  `erroLentaPct` e `toleranciaMl` gravados no salvamento; mudar a tolerância depois não
   reescreve aferições antigas. Regra de negócio da aferição só em
   `js/afericao.js` (funções puras); as views não refazem conta.
 - **IndexedDB v2** (`DB_VERSION = 2`) adicionou `bicos`, `afericoes`,

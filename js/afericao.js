@@ -15,11 +15,57 @@ function limiteToleranciaMl(toleranciaMl, volumeL) {
   return toleranciaMl * (volumeL / VOLUME_REFERENCIA_TOLERANCIA_L);
 }
 
+// Cada bico é ensaiado em duas vazões (RTM da Portaria Inmetro nº 227/2022,
+// item 6.4): rápida (Q2, perto da máxima) e lenta (Q1, perto da mínima).
+// Regras (itens 3.1.2 e 6.4 e):
+//   - cada ensaio dentro de ±tolerância;
+//   - se os dois erros tiverem sinais contrários, a soma dos módulos também
+//     não pode passar da tolerância.
+const VAZOES = ["rapida", "lenta"];
+const VAZAO_ROTULO = { rapida: "Vazão rápida", lenta: "Vazão lenta" };
+
+const temValor = (v) => v !== null && v !== undefined;
+
+function detalharFora(item, toleranciaMl) {
+  const limiteMl = limiteToleranciaMl(Number(toleranciaMl), item.volumeL);
+  const r = item.resultadoRapidaMl;
+  const l = item.resultadoLentaMl;
+  const opostos = temValor(r) && temValor(l) && Math.sign(r) * Math.sign(l) < 0;
+  const somaOpostos = opostos ? Math.abs(r) + Math.abs(l) : null;
+  return {
+    limiteMl,
+    rapida: temValor(r) && Math.abs(r) > limiteMl,
+    lenta: temValor(l) && Math.abs(l) > limiteMl,
+    somaOpostos,
+    estourouSoma: somaOpostos !== null && somaOpostos > limiteMl,
+  };
+}
+
 function classificarSituacao(item, toleranciaMl) {
   if (item.naoTestado) return "nao_testado";
-  if (item.resultadoMl === null || item.resultadoMl === undefined) return "vazio";
-  if (toleranciaMl === null || toleranciaMl === undefined || toleranciaMl === "") return "sem_criterio";
-  return Math.abs(item.resultadoMl) <= limiteToleranciaMl(Number(toleranciaMl), item.volumeL) ? "ok" : "fora";
+  const qtd = [item.resultadoRapidaMl, item.resultadoLentaMl].filter(temValor).length;
+  if (qtd === 0) return "vazio";
+  const semCriterio = toleranciaMl === null || toleranciaMl === undefined || toleranciaMl === "";
+  if (!semCriterio) {
+    const d = detalharFora(item, toleranciaMl);
+    // Um ensaio fora já reprova, mesmo com o outro ainda em branco.
+    if (d.rapida || d.lenta || d.estourouSoma) return "fora";
+  }
+  if (qtd === 1) return "incompleto";
+  return semCriterio ? "sem_criterio" : "ok";
+}
+
+// Aferição salva antes das duas vazões guardava um resultado só
+// (resultadoMl/erroPct): passa a ser lido como vazão rápida, lenta em branco.
+function normalizarItem(item) {
+  if (item.resultadoRapidaMl !== undefined || item.resultadoMl === undefined) return item;
+  return {
+    ...item,
+    resultadoRapidaMl: item.resultadoMl,
+    resultadoLentaMl: null,
+    erroRapidaPct: item.erroPct ?? null,
+    erroLentaPct: null,
+  };
 }
 
 // O campo de mL é digitado sem sinal; o sinal vem dos botões Passou (+1) /
@@ -40,9 +86,13 @@ function validarAfericao(afericao) {
   if (!String(afericao.responsavel || "").trim()) erros.push("Informe o responsável pela aferição.");
   const semObs = afericao.itens.filter((i) => i.naoTestado && !String(i.observacao || "").trim());
   for (const i of semObs) erros.push(`Bico ${i.numero}: marcado como não testado - escreva o motivo na observação.`);
-  const vazios = afericao.itens.filter((i) => !i.naoTestado && (i.resultadoMl === null || i.resultadoMl === undefined));
-  if (vazios.length === 1) avisos.push(`O bico ${vazios[0].numero} está sem resultado.`);
-  else if (vazios.length > 1) avisos.push(`${vazios.length} bicos estão sem resultado (${vazios.map((i) => i.numero).join(", ")}).`);
+  const semNada = afericao.itens.filter((i) => !i.naoTestado && !temValor(i.resultadoRapidaMl) && !temValor(i.resultadoLentaMl));
+  const soUma = afericao.itens.filter((i) => !i.naoTestado && temValor(i.resultadoRapidaMl) !== temValor(i.resultadoLentaMl));
+  const lista = (itens) => itens.map((i) => i.numero).join(", ");
+  if (semNada.length === 1) avisos.push(`O bico ${semNada[0].numero} está sem resultado.`);
+  else if (semNada.length > 1) avisos.push(`${semNada.length} bicos estão sem resultado (${lista(semNada)}).`);
+  if (soUma.length === 1) avisos.push(`O bico ${soUma[0].numero} tem só uma das duas vazões.`);
+  else if (soUma.length > 1) avisos.push(`${soUma.length} bicos têm só uma das duas vazões (${lista(soUma)}).`);
   return { erros, avisos };
 }
 
@@ -56,6 +106,7 @@ function resumirAfericao(itens) {
     fora,
     naoTestados: conta("nao_testado"),
     vazios: conta("vazio"),
+    incompletos: conta("incompleto"),
   };
 }
 
@@ -71,7 +122,8 @@ function montarItens(bicos, volumePadraoL) {
       bomba: b.bomba,
       produto: b.produto,
       volumeL: volumePadraoL,
-      resultadoMl: null,
+      resultadoRapidaMl: null,
+      resultadoLentaMl: null,
       naoTestado: false,
       observacao: "",
     }));
@@ -87,11 +139,13 @@ function congelarAfericao(rascunho, toleranciaMl) {
     bomba: i.bomba,
     produto: i.produto,
     volumeL: i.volumeL,
-    resultadoMl: i.naoTestado ? null : i.resultadoMl,
+    resultadoRapidaMl: i.naoTestado ? null : i.resultadoRapidaMl ?? null,
+    resultadoLentaMl: i.naoTestado ? null : i.resultadoLentaMl ?? null,
     naoTestado: !!i.naoTestado,
     observacao: String(i.observacao || "").trim(),
     situacao: classificarSituacao(i, tolerancia),
-    erroPct: i.naoTestado ? null : calcularErroPct(i.resultadoMl, i.volumeL),
+    erroRapidaPct: i.naoTestado ? null : calcularErroPct(i.resultadoRapidaMl, i.volumeL),
+    erroLentaPct: i.naoTestado ? null : calcularErroPct(i.resultadoLentaMl, i.volumeL),
   }));
   const agora = new Date().toISOString();
   return {
@@ -128,5 +182,6 @@ const SITUACAO_ROTULO = {
   fora: "Fora da tolerância",
   nao_testado: "Não testado",
   vazio: "Sem resultado",
+  incompleto: "Falta uma vazão",
   sem_criterio: "Registrado",
 };

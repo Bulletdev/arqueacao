@@ -1,7 +1,8 @@
 // RF-B5/B6 - PDF e texto de WhatsApp da aferição de bicos (jsPDF, 100% no cliente).
 // Paisagem: são 8 colunas (a observação precisa de espaço).
 
-function gerarPdfAfericao(afericao) {
+function gerarPdfAfericao(afericaoSalva) {
+  const afericao = { ...afericaoSalva, itens: afericaoSalva.itens.map(normalizarItem) };
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const larguraPagina = doc.internal.pageSize.getWidth();
@@ -35,27 +36,43 @@ function gerarPdfAfericao(afericao) {
     String(i.numero).padStart(2, "0"),
     i.produto,
     i.naoTestado ? "-" : formatNumero(i.volumeL),
-    i.naoTestado ? "-" : formatMl(i.resultadoMl),
-    i.naoTestado ? "-" : formatPct(i.erroPct),
+    i.naoTestado ? "-" : formatMl(i.resultadoRapidaMl),
+    i.naoTestado ? "-" : formatPct(i.erroRapidaPct),
+    i.naoTestado ? "-" : formatMl(i.resultadoLentaMl),
+    i.naoTestado ? "-" : formatPct(i.erroLentaPct),
     SITUACAO_ROTULO[i.situacao] || "",
     i.observacao || "",
   ]);
 
   doc.autoTable({
     startY: y,
-    head: [["Bomba", "Bico", "Produto", "Volume (L)", "Resultado", "Erro (%)", "Situação", "Observação"]],
+    head: [
+      [
+        { content: "Bomba", rowSpan: 2 },
+        { content: "Bico", rowSpan: 2 },
+        { content: "Produto", rowSpan: 2 },
+        { content: "Volume (L)", rowSpan: 2 },
+        { content: "Vazão rápida", colSpan: 2, styles: { halign: "center" } },
+        { content: "Vazão lenta", colSpan: 2, styles: { halign: "center" } },
+        { content: "Situação", rowSpan: 2 },
+        { content: "Observação", rowSpan: 2 },
+      ],
+      ["Resultado", "Erro (%)", "Resultado", "Erro (%)"],
+    ],
     body: corpo,
     theme: "grid",
     headStyles: { fillColor: [0, 25, 54] },
     styles: { fontSize: 9, cellPadding: 2 },
     columnStyles: {
-      0: { halign: "center", cellWidth: 16 },
-      1: { halign: "center", cellWidth: 14 },
-      2: { cellWidth: 20 },
-      3: { halign: "right", cellWidth: 22 },
-      4: { halign: "right", cellWidth: 24 },
-      5: { halign: "right", cellWidth: 20 },
-      6: { cellWidth: 38 },
+      0: { halign: "center", cellWidth: 15 },
+      1: { halign: "center", cellWidth: 12 },
+      2: { cellWidth: 18 },
+      3: { halign: "right", cellWidth: 19 },
+      4: { halign: "right", cellWidth: 23 },
+      5: { halign: "right", cellWidth: 19 },
+      6: { halign: "right", cellWidth: 23 },
+      7: { halign: "right", cellWidth: 19 },
+      8: { cellWidth: 33 },
     },
     didParseCell: (data) => {
       if (data.section !== "body") return;
@@ -63,8 +80,8 @@ function gerarPdfAfericao(afericao) {
       if (item.situacao === "fora") {
         data.cell.styles.fillColor = [252, 232, 230];
         data.cell.styles.textColor = [150, 30, 24];
-        if (data.column.index >= 4 && data.column.index <= 6) data.cell.styles.fontStyle = "bold";
-      } else if (item.situacao === "nao_testado" || item.situacao === "vazio") {
+        if (data.column.index >= 4 && data.column.index <= 8) data.cell.styles.fontStyle = "bold";
+      } else if (item.situacao === "nao_testado" || item.situacao === "vazio" || item.situacao === "incompleto") {
         data.cell.styles.textColor = [110, 110, 110];
       }
     },
@@ -76,9 +93,17 @@ function gerarPdfAfericao(afericao) {
     doc.addPage();
     yFim = 20;
   }
+  doc.setFontSize(8);
+  doc.setTextColor(90);
+  doc.text(
+    "Cada bico ensaiado em vazão rápida e lenta. Critério: cada ensaio dentro da tolerância e, com sinais opostos, soma dos módulos também dentro (RTM Portaria Inmetro 227/2022, itens 3.1.2 e 6.4).",
+    14,
+    yFim + 6
+  );
+  doc.setTextColor(0);
   doc.setFontSize(10);
   doc.text(
-    `Resumo: ${r.testados} testados · ${r.ok} dentro da tolerância · ${r.fora} fora · ${r.naoTestados} não testados · ${r.vazios} sem resultado`,
+    `Resumo: ${r.testados} testados · ${r.ok} dentro da tolerância · ${r.fora} fora · ${r.naoTestados} não testados · ${r.incompletos || 0} com uma vazão só · ${r.vazios} sem resultado`,
     14,
     yFim
   );
@@ -106,7 +131,8 @@ function nomeArquivoAfericao(afericao, ext) {
 }
 
 // Texto curto pro WhatsApp: destaca só o que precisa de atenção.
-function textoResumoAfericao(afericao) {
+function textoResumoAfericao(afericaoSalva) {
+  const afericao = { ...afericaoSalva, itens: afericaoSalva.itens.map(normalizarItem) };
   const r = afericao.resumo || resumirAfericao(afericao.itens);
   const linhas = [
     `Aferição ${formatDataHora(afericao.dataHora)} - ${afericao.nomePosto || "Posto"}`,
@@ -117,7 +143,9 @@ function textoResumoAfericao(afericao) {
   if (fora.length) {
     linhas.push("", "Fora da tolerância:");
     for (const i of fora) {
-      linhas.push(`- Bico ${i.numero} (${i.produto}, bomba ${i.bomba}): ${formatMl(i.resultadoMl)} em ${formatNumero(i.volumeL)} L${i.observacao ? " - " + i.observacao : ""}`);
+      linhas.push(
+        `- Bico ${i.numero} (${i.produto}, bomba ${i.bomba}): rápida ${formatMl(i.resultadoRapidaMl)}, lenta ${formatMl(i.resultadoLentaMl)} em ${formatNumero(i.volumeL)} L${i.observacao ? " - " + i.observacao : ""}`
+      );
     }
   }
   const nao = afericao.itens.filter((i) => i.situacao === "nao_testado");
@@ -125,6 +153,7 @@ function textoResumoAfericao(afericao) {
     linhas.push("", "Não testados:");
     for (const i of nao) linhas.push(`- Bico ${i.numero} (${i.produto}): ${i.observacao}`);
   }
+  if (r.incompletos) linhas.push("", `${r.incompletos} bico(s) com só uma das duas vazões.`);
   if (r.vazios) linhas.push("", `${r.vazios} bico(s) sem resultado.`);
   return linhas.join("\n");
 }

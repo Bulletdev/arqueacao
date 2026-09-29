@@ -135,9 +135,27 @@ Não há conversão nem tabela - é um formulário estruturado com histórico e 
 
 **RF-B8 - PWA offline.** Igual ao app atual: instala, abre e funciona sem rede.
 
-### 3.4 Tolerância
+### 3.4 Tolerância e vazão (conferido no RTM oficial em 28/09/2026)
 
-O app **não decide** a regra legal; ela fica em Configurações. Sugestão de valor inicial: **±100 mL em 20 L (±0,5%)**, que é a referência usual para bomba em serviço no regulamento do Inmetro - **confirmar com o gerente** qual valor o posto usa antes de entregar. Se o gerente preferir, o app pode só registrar o número sem classificar (tolerância em branco = sem coluna "Situação").
+**Tolerância:** item 3.1.2 do RTM aprovado pela **Portaria Inmetro nº
+227/2022** (vigente desde 01/07/2022): erro máximo admissível de **±0,5%**
+nas verificações subsequentes e inspeção, ou seja **±100 mL em 20 L**, igual
+pros dois lados. É o padrão do app (configurável). A tabela "60 mL a menos /
+100 mL a mais" que ainda aparece em notícias é da Portaria 294/2018 (2019 a
+jun/2022), substituída. Fonte: RTM consolidado publicado pelo IPEM-PR.
+
+**Vazão (confirmado pelo usuário em 28/09/2026 e implementado):** o item 6.4
+do mesmo RTM manda ensaiar cada bico em pelo menos **duas vazões** - Q1
+(lenta, perto da mínima) e Q2 (rápida, perto da máxima). Cada bico tem
+agora dois resultados (rápida e lenta). Regra em `js/afericao.js`:
+- cada ensaio dentro de ±tolerância (limite inclusivo);
+- se os dois erros tiverem sinais contrários, a soma dos módulos também
+  não pode passar da tolerância (6.4 e);
+- um ensaio fora já reprova o bico, mesmo com o outro em branco;
+- só uma vazão preenchida (e dentro) = situação "incompleto" (aviso ao
+  salvar, não bloqueia).
+Aferições salvas antes disso (um resultado só) são lidas como vazão rápida
+(`normalizarItem`).
 
 ### 3.5 Modelo de dados
 
@@ -164,9 +182,11 @@ Afericao {
     bomba: number
     produto: string   // copiado, não referência (bico pode mudar de produto)
     volumeL: number   // 20
-    resultadoMl: number | null   // +passou / -faltou
-    erroPct: number | null
-    situacao: "ok" | "fora" | "nao_testado" | "vazio" | "sem_criterio"   // sem_criterio = tolerância em branco
+    resultadoRapidaMl: number | null   // vazão rápida (Q2): +passou / -faltou
+    resultadoLentaMl: number | null    // vazão lenta (Q1)
+    erroRapidaPct: number | null
+    erroLentaPct: number | null
+    situacao: "ok" | "fora" | "nao_testado" | "vazio" | "incompleto" | "sem_criterio"   // sem_criterio = tolerância em branco
     observacao?: string
   }[]
   criadoEm: string
